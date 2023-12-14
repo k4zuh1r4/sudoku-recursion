@@ -1,77 +1,236 @@
-import numpy as np
-board = [
-[7,8,0,4,0,0,1,2,0],
-[6,0,0,0,7,5,0,0,9],
-[0,0,0,6,0,1,0,7,8],
-[0,0,7,0,4,0,2,6,0],
-[0,0,1,0,5,0,9,3,0],
-[9,0,4,0,6,0,0,0,5],
-[0,7,0,3,0,0,0,1,2],
-[1,2,0,0,0,7,4,0,0],
-[0,4,9,2,0,6,0,0,7]
-]
-board2 = [
-[5,3,0,0,7,0,0,0,0],
-[6,0,0,1,9,5,0,0,0],
-[0,9,8,0,0,0,0,6,0],
-[8,0,0,0,6,0,0,0,3],
-[4,0,0,8,0,3,0,0,1],
-[7,0,0,0,2,0,0,0,6],
-[0,6,0,0,0,0,2,8,0],
-[0,0,0,0,1,9,0,0,5],
-[0,0,0,0,0,0,0,0,0]]
-def solve(board):
-    find = emptySearch(board)
-    if not find:
-        return True
-    else:
-        y, x = find
+import pygame
+import sys
+import copy
+import random
+import config as cfg
+from Solver import *
+from gui import *
+class Sudoku:
+    def __init__(self):
+        self.board_to_solve = self.generate_sudoku()
+        self.original_board = copy.deepcopy(self.board_to_solve)
+        self.solving_board = copy.deepcopy(self.board_to_solve)
+        self.solve(self.solving_board)
+        self.print_board(self.solving_board)
 
-    for i in range(1,10):
-        if validate(board, i, (y, x)):
-            board[y][x] = i
+        self.count_mistake = 0
+        self.cell_colors = [[(128, 128, 128) for _ in range(cfg.WIDTH)] for _ in range(cfg.HEIGHT)]
+        self.player_input = [[0 for _ in range(cfg.WIDTH)] for _ in range(cfg.HEIGHT)]
+        self.selected_cell = None
+        self.game_over = False
+        self.display_lose = False
+        self.game_reset = False
 
-            if solve(board):
-                return True
+        pygame.init()
+        self.screen = pygame.display.set_mode((cfg.BOARD_SIZE, cfg.BOARD_SIZE + 100))
+        pygame.display.set_caption("Sudoku Solver")
+        self.clock = pygame.time.Clock()
 
-            board[y][x] = 0
-    return False
-def validate(board, num, pos):
-    for i in range(len(board[0])):
-        if board[pos[0]][i] == num and pos[1] != i:
-            return False
-    for i in range(len(board)):
-        if board[i][pos[1]] == num and pos[0] != i:
-            return False
-    boxPosX = pos[1] // 3
-    boxPosY = pos[0] // 3
-    for i in range(boxPosY*3, boxPosY*3 + 3):
-        for j in range(boxPosX * 3, boxPosX*3 + 3):
-            if board[i][j] == num and (i,j) != pos:
+    def generate_sudoku(self):
+        board = [[0 for _ in range(cfg.WIDTH)] for _ in range(cfg.HEIGHT)]
+        for _ in range(10):
+            i, j, num = random.randint(0, 8), random.randint(0, 8), random.randint(1, 9)
+            if self.validate(board, num, (i, j)):
+                board[i][j] = num
+
+        self.solve(board)
+        for _ in range(40):
+            i, j = random.randint(0, 8), random.randint(0, 8)
+            board[i][j] = 0
+
+        return board
+
+    def solve(self, board):
+        find = self.empty_search(board)
+        if not find:
+            return True
+        else:
+            y, x = find
+
+        for i in range(1, 10):
+            if self.validate(board, i, (y, x)):
+                board[y][x] = i
+
+                if self.solve(board):
+                    return True
+
+                board[y][x] = 0
+        return False
+
+    def validate(self, board, num, pos):
+        for i in range(cfg.WIDTH):
+            if board[pos[0]][i] == num and pos[1] != i:
                 return False
-    return True
-def printArray(board):
-    for i in range(len(board)):
-        if i % 3 == 0 and i != 0:
-            print("-----------------------")
-        for j in range(len(board[0])):
-            if j % 3 == 0 and j != 0:
-                print(" | ", end="")
+        for i in range(cfg.HEIGHT):
+            if board[i][pos[1]] == num and pos[0] != i:
+                return False
+        box_pos_x = pos[1] // 3
+        box_pos_y = pos[0] // 3
+        for i in range(box_pos_y * 3, box_pos_y * 3 + 3):
+            for j in range(box_pos_x * 3, box_pos_x * 3 + 3):
+                if board[i][j] == num and (i, j) != pos:
+                    return False
+        return True
 
-            if j == 8:
-                print(board[i][j])
-            else:
-                print(str(board[i][j]) + " ", end="")
+    def empty_search(self, board):
+        for i in range(cfg.HEIGHT):
+            for j in range(cfg.WIDTH):
+                if board[i][j] == 0:
+                    return (i, j)
+        return None
 
+    def print_board(self, board):
+        for i in range(cfg.HEIGHT):
+            if i % 3 == 0 and i != 0:
+                print("-----------------------")
+            for j in range(cfg.WIDTH):
+                if j % 3 == 0 and j != 0:
+                    print(" | ", end="")
+                if j == 8:
+                    print(board[i][j])
+                else:
+                    print(str(board[i][j]) + " ", end="")
 
-def emptySearch(board):
-    for i in range(len(board)):
-        for j in range(len(board[0])):
-            if board[i][j] == 0:
-                return (i, j) 
+    def draw_board(self, board):
+        pygame.draw.rect(self.screen, cfg.BLACK, (0, 0, cfg.BOARD_SIZE, cfg.BOARD_SIZE), 2)
+        for i in range(cfg.WIDTH):
+            pygame.draw.line(self.screen, cfg.BLACK, (0, i * cfg.CELL_SIZE), (cfg.BOARD_SIZE, i * cfg.CELL_SIZE), 2)
+            pygame.draw.line(self.screen, cfg.BLACK, (i * cfg.CELL_SIZE, 0), (i * cfg.CELL_SIZE, cfg.BOARD_SIZE), 2)
+            if i % 3 == 0 and i != 0:
+                pygame.draw.line(self.screen, cfg.BLACK, (0, i * cfg.CELL_SIZE - 1), (cfg.BOARD_SIZE, i * cfg.CELL_SIZE - 1), 6)
+                pygame.draw.line(self.screen, cfg.BLACK, (i * cfg.CELL_SIZE - 1, 0), (i * cfg.CELL_SIZE - 1, cfg.BOARD_SIZE), 6)
+            for j in range(cfg.WIDTH):
+                if board[i][j] != 0:
+                    font = pygame.font.Font(None, 36)
+                    text = font.render(str(board[i][j]), True,cfg.BLACK)
+                    self.screen.blit(text, (j * cfg.CELL_SIZE + 15, i *cfg.CELL_SIZE + 15))
 
-    return None
-printArray(board2)
-solve(board2)
-print("")
-printArray(board2)
+    def boards_are_equal(self, board1, board2):
+        for i in range(cfg.HEIGHT):
+            for j in range(cfg.WIDTH):
+                if board1[i][j] != board2[i][j]:
+                    return False
+        return True
+
+    def update_board(self, original_board, player_input):
+        updated_board = [row[:] for row in original_board]
+        for i in range(cfg.HEIGHT):
+            for j in range(cfg.WIDTH):
+                if player_input[i][j] != 0:
+                    updated_board[i][j] = player_input[i][j]
+        return updated_board
+
+    def new_game(self):
+        self.count_mistake = 0
+        self.cell_colors = [[(128, 128, 128) for _ in range(cfg.WIDTH)] for _ in range(cfg.HEIGHT)]
+        self.player_input = [[0 for _ in range(cfg.WIDTH)] for _ in range(cfg.HEIGHT)]
+        self.selected_cell = None
+        self.game_over = False
+        self.display_lose = False
+        self.game_reset = False
+
+        self.board_to_solve = self.generate_sudoku()
+        self.original_board = copy.deepcopy(self.board_to_solve)
+        self.solving_board = copy.deepcopy(self.board_to_solve)
+        self.solve(self.solving_board)
+        self.print_board(self.solving_board)
+
+    def main(self):
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    x, y = event.pos
+                    self.selected_cell = (y // cfg.CELL_SIZE, x // cfg.CELL_SIZE)
+                    if self.solve_button_rect.collidepoint(event.pos):
+                        if self.display_lose:
+                            self.display_lose = False
+                        for i in range(cfg.HEIGHT):
+                            for j in range(cfg.WIDTH):
+                                self.player_input[i][j] = 0
+                                self.cell_colors[i][j] = (128, 128, 128)
+                        for i in range(cfg.HEIGHT):
+                            for j in range(cfg.WIDTH):
+                                self.original_board[i][j] = self.solving_board[i][j]
+                    elif self.quit_button_rect.collidepoint(event.pos):
+                        pygame.quit()
+                        sys.exit()
+                    elif self.newgame_button_rect.collidepoint(event.pos):
+                        self.game_reset = True
+                elif event.type == pygame.KEYDOWN and not self.game_over:
+                    if self.selected_cell is not None and self.original_board[self.selected_cell[0]][self.selected_cell[1]] == 0:
+                        try:
+                            self.player_input[self.selected_cell[0]][self.selected_cell[1]] = int(event.unicode)
+                        except ValueError:
+                            pass
+                        if self.player_input[self.selected_cell[0]][self.selected_cell[1]] != self.solving_board[self.selected_cell[0]][self.selected_cell[1]]:
+                            self.cell_colors[self.selected_cell[0]][self.selected_cell[1]] = self.RED
+                            self.count_mistake += 1
+                            if self.count_mistake > 5:
+                                self.game_over = True
+                                self.display_lose = True
+                        else:
+                            self.cell_colors[self.selected_cell[0]][self.selected_cell[1]] = self.GREEN
+
+            self.screen.fill(cfg.WHITE)
+            self.draw_board(self.original_board)
+            updated_board = self.update_board(self.original_board, self.player_input)
+            if self.boards_are_equal(updated_board, self.solving_board):
+                font = pygame.font.Font(None, 100)
+                text_surface = font.render("You Win!", True, (255, 255, 0))
+                text_rect = text_surface.get_rect()
+                text_rect.center = (cfg.BOARD_SIZE // 2, cfg.BOARD_SIZE // 2)
+                self.screen.blit(text_surface, text_rect)
+            for i in range(cfg.HEIGHT):
+                for j in range(cfg.WIDTH):
+                    if self.player_input[i][j] != 0:
+                        font = pygame.font.Font(None, 36)
+                        text = font.render(str(self.player_input[i][j]), True, cfg.BLACK)
+                        self.screen.blit(text, (j * cfg.CELL_SIZE + 15, i * cfg.CELL_SIZE + 15))
+
+            if self.selected_cell is not None:
+                if 0 <= self.selected_cell[0] < cfg.HEIGHT and 0 <= self.selected_cell[1] < cfg.WIDTH:
+                    pygame.draw.rect(self.screen, self.cell_colors[self.selected_cell[0]][self.selected_cell[1]],(self.selected_cell[1] * self.CELL_SIZE, self.selected_cell[0] * self.CELL_SIZE,self.CELL_SIZE, self.CELL_SIZE), 2)
+
+            button_width = 100
+            button_height = 50
+            button_color = (150, 150, 150)
+
+            self.quit_button_rect = pygame.Rect(10, cfg.BOARD_SIZE + 20, button_width, button_height)
+            pygame.draw.rect(self.screen, button_color, self.quit_button_rect)
+            font = pygame.font.Font(None, 36)
+            text = font.render("Quit", True, cfg.BLACK)
+            self.screen.blit(text, (15, cfg.BOARD_SIZE + 30))
+
+            self.solve_button_rect = pygame.Rect(cfg.BOARD_SIZE - button_width - 10, cfg.BOARD_SIZE + 20, button_width,button_height)
+            pygame.draw.rect(self.screen, button_color, self.solve_button_rect)
+            text = font.render("Solve", True, cfg.BLACK)
+            self.screen.blit(text, (cfg.BOARD_SIZE - button_width + 5, cfg.BOARD_SIZE + 30))
+
+            self.newgame_button_rect = pygame.Rect(cfg.BOARD_SIZE - button_width - 180 - 25, cfg.BOARD_SIZE + 60,
+                                                   button_width + 50, button_height)
+            pygame.draw.rect(self.screen, button_color, self.newgame_button_rect)
+            text = font.render("New game", True, cfg.BLACK)
+            self.screen.blit(text, ((cfg.BOARD_SIZE - button_width - 50) // 2, cfg.BOARD_SIZE + 60))
+
+            text = font.render(f"Fail : {self.count_mistake} < 6", True, cfg.BLACK)
+            self.screen.blit(text, (cfg.BOARD_SIZE // 2 - 60, cfg.BOARD_SIZE + 10))
+
+            if self.game_over and self.display_lose and not self.solve_button_rect.collidepoint(pygame.mouse.get_pos()):
+                font = pygame.font.Font(None, 100)
+                text_lose = font.render("You Lose!", True, cfg.BLACK)
+                text_rect = text_lose.get_rect()
+                text_rect.center = (cfg.BOARD_SIZE // 2, cfg.BOARD_SIZE // 2)
+                self.screen.blit(text_lose, text_rect)
+
+            if self.game_reset:
+                self.new_game()
+
+            pygame.display.flip()
+            self.clock.tick(60)
+
+if __name__ == "__main__":
+    game = Sudoku()
+    game.main()
